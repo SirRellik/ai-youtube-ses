@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{width:{{WIDTH}}px;height:{{HEIGHT}}px;font-family:'Segoe UI','Helvetica Neue',sans-serif;color:{{TEXT}};background:{{BG_DARK}};overflow:hidden;position:relative}
+.bg{position:absolute;inset:0;background:url('{{BG_IMAGE}}') center/cover no-repeat}
+.shade{position:absolute;inset:0;background:linear-gradient(180deg,rgba(4,22,46,.35) 0%,rgba(4,22,46,.55) 55%,rgba(4,22,46,.93) 100%)}
+.content{position:absolute;left:90px;right:90px;bottom:130px}
+.kicker{color:{{SECONDARY}};font-size:30px;font-weight:700;letter-spacing:7px;text-transform:uppercase;margin-bottom:24px}
+.bar{width:130px;height:8px;background:linear-gradient(90deg,{{PRIMARY}},{{SECONDARY}});border-radius:4px;margin-bottom:30px}
+h1{font-size:{{TITLE_SIZE}}px;font-weight:800;line-height:1.12;text-shadow:0 4px 24px rgba(0,0,0,.6);max-width:1500px}
+.overlay{margin-top:26px;font-size:34px;color:rgba(255,255,255,.88);max-width:1300px;line-height:1.4}
+.logo{position:absolute;right:48px;bottom:36px}.logo img{height:54px;filter:drop-shadow(0 2px 8px rgba(0,0,0,.5))}
+.num{position:absolute;left:48px;bottom:40px;font-size:22px;color:rgba(255,255,255,.45);letter-spacing:3px}
+</style></head><body>
+<div class="bg"></div><div class="shade"></div>
+<div class="content"><div class="kicker">{{KICKER}}</div><div class="bar"></div><h1>{{TITLE}}</h1><div class="overlay">{{OVERLAY}}</div></div>
+<div class="logo">{{LOGO_TAG}}</div><div class="num">{{SCENE_NUM}}</div>
+</body></html>

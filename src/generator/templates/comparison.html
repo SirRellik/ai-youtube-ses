@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{width:{{WIDTH}}px;height:{{HEIGHT}}px;font-family:'Segoe UI','Helvetica Neue',sans-serif;color:{{TEXT}};background:linear-gradient(160deg,#08203f 0%,{{BG_DARK}} 60%);overflow:hidden;position:relative}
+.header{position:absolute;top:80px;left:90px;right:90px}
+.kicker{color:{{SECONDARY}};font-size:28px;font-weight:700;letter-spacing:6px;text-transform:uppercase;margin-bottom:20px}
+h1{font-size:52px;font-weight:800;line-height:1.2}
+.cols{position:absolute;top:330px;left:90px;right:90px;bottom:150px;display:flex;gap:56px}
+.col{flex:1;background:rgba(255,255,255,.06);border-top:8px solid {{PRIMARY}};border-radius:18px;padding:44px;font-size:33px;line-height:1.5}
+.col:last-child{border-top-color:{{SECONDARY}}}
+.col-label{font-size:25px;letter-spacing:4px;font-weight:700;color:{{SECONDARY}};margin-bottom:24px}
+.col:first-child .col-label{color:#5aa9ff}
+.col p{margin-bottom:18px}
+.logo{position:absolute;right:48px;bottom:36px}.logo img{height:54px}
+.num{position:absolute;left:48px;bottom:40px;font-size:22px;color:rgba(255,255,255,.45);letter-spacing:3px}
+</style></head><body>
+<div class="header"><div class="kicker">{{KICKER}}</div><h1>{{TITLE}}</h1></div>
+<div class="cols">{{BODY}}</div>
+<div class="logo">{{LOGO_TAG}}</div><div class="num">{{SCENE_NUM}}</div>
+</body></html>

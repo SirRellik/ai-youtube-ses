@@ -4,7 +4,9 @@
   "dashboardPort": 3041,
   "video": { "width": 1920, "height": 1080, "fps": 25, "minSceneSec": 4 },
   "thumbnail": { "width": 1280, "height": 720 },
+  "audio": { "musicVolume": 0.15 },
   "outputDir": "./output",
   "tempDir": "./temp",
+  "cacheDir": "./data/cache",
   "stateFile": "./data/state/processed.json"
 }

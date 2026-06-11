@@ -1,6 +1,8 @@
 /**
  * orchestrator.js - Main entry point. Autonomous pipeline:
- * poll articles every N hours -> screenplay -> video + thumbnail -> upload -> track state
+ * poll articles every 6h -> filter (ready, cs, >1000 chars, energy topic, newest first)
+ * -> director screenplay -> video + thumbnail -> upload -> track state.
+ * Generates cfg.maxVideosPerCycle (2) videos per cycle.
  * Flags: --once (single cycle then exit), --no-upload (dry run)
  */
 const fs = require('fs');
@@ -11,7 +13,8 @@ process.chdir(path.join(__dirname, '..'));
 const cfg = JSON.parse(fs.readFileSync('./config/default.json', 'utf8'));
 const channels = JSON.parse(fs.readFileSync('./config/channels.json', 'utf8'));
 const { fetchArticles } = require('./fetcher/article-fetcher');
-const { buildScreenplay } = require('./screenwriter/screenwriter');
+const { selectArticles } = require('./fetcher/article-filter');
+const { buildScreenplay } = require('./director/ses-director');
 const { generateVideo } = require('./generator/video-generator');
 const { generateThumbnail } = require('./generator/thumbnail-generator');
 const { uploadVideo } = require('./uploader/youtube-uploader');
@@ -36,8 +39,9 @@ function saveState() {
 
 async function processArticle(article, channelKey, channel) {
   const stateKey = `${channelKey}:${article.id}`;
-  console.log(`[Orchestrator] Processing article: ${article.title}`);
+  console.log(`[Orchestrator] Processing: "${article.title}" (${article.id}, published ${article.publishedAt || 'n/a'})`);
   const screenplay = buildScreenplay(article, channel);
+  console.log(`[Orchestrator] Screenplay: ${screenplay.scenes.length} scenes, ~${screenplay.estimatedDuration}s | SEO: ${screenplay.seo.title}`);
   const videoFile = await generateVideo(screenplay, channel, cfg);
   const thumbFile = await generateThumbnail(screenplay, channel, cfg);
   let videoId = null;
@@ -50,6 +54,7 @@ async function processArticle(article, channelKey, channel) {
   }
   state.processed[stateKey] = {
     title: article.title,
+    seoTitle: screenplay.seo.title,
     articleUrl: article.url,
     videoFile,
     thumbFile,
@@ -73,8 +78,9 @@ async function runCycle() {
         console.log(`[Orchestrator] Fetch failed: ${e.message}`);
         continue;
       }
-      const fresh = articles.filter((a) => !state.processed[`${channelKey}:${a.id}`]);
-      console.log(`[Orchestrator] ${articles.length} articles, ${fresh.length} without video`);
+      const candidates = selectArticles(articles);
+      const fresh = candidates.filter((a) => !state.processed[`${channelKey}:${a.id}`]);
+      console.log(`[Orchestrator] ${articles.length} fetched | ${candidates.length} pass filters (ready/cs/energy/>1000 chars) | ${fresh.length} without video`);
       for (const article of fresh.slice(0, cfg.maxVideosPerCycle)) {
         try {
           await processArticle(article, channelKey, channel);
@@ -98,7 +104,7 @@ if (!ONCE) {
 runCycle().then(() => {
   if (ONCE) { console.log('[Orchestrator] Single cycle done, exiting'); process.exit(0); }
   const intervalMs = cfg.pollIntervalHours * 3600 * 1000;
-  console.log(`[Orchestrator] Polling every ${cfg.pollIntervalHours}h`);
+  console.log(`[Orchestrator] Polling every ${cfg.pollIntervalHours}h, ${cfg.maxVideosPerCycle} videos per cycle`);
   setInterval(() => runCycle().catch((e) => console.log(`[Orchestrator] Cycle error: ${e.message}`)), intervalMs);
 }).catch((e) => {
   console.error(`[Orchestrator] Fatal: ${e.message}`);

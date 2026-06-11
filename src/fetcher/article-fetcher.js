@@ -1,6 +1,8 @@
 /**
  * article-fetcher.js - Pluggable article source (api | fs)
- * Returns normalized articles: { id, title, perex, content, url, language, publishedAt }
+ * Returns normalized articles incl. SES fields:
+ * { id, title, perex, content, url, language, publishedAt,
+ *   status, image, tags, category, keyword, slug, author, wordCount }
  */
 const fs = require('fs');
 const path = require('path');
@@ -39,7 +41,15 @@ function normalize(raw) {
     content: String(content),
     url: raw.url || raw.link || raw.permalink || null,
     language: raw.language || raw.lang || 'cs',
-    publishedAt: raw.publishedAt || raw.published_at || raw.date || null
+    publishedAt: raw.publishedAt || raw.published_at || raw.date || null,
+    status: raw.status || null,
+    image: raw.image || raw.imageUrl || raw.cover || null,
+    tags: Array.isArray(raw.tags) ? raw.tags.map(String) : [],
+    category: raw.category || raw.trendCategory || null,
+    keyword: raw.keyword || null,
+    slug: raw.slug || null,
+    author: raw.author || null,
+    wordCount: raw.wordCount || null
   };
 }
 

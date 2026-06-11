@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{width:{{WIDTH}}px;height:{{HEIGHT}}px;font-family:'Segoe UI','Helvetica Neue',sans-serif;color:{{TEXT}};background:radial-gradient(1200px 800px at 25% 35%,#0a2a52 0%,{{BG_DARK}} 70%);overflow:hidden;position:relative}
+.kicker{position:absolute;top:90px;left:120px;color:{{SECONDARY}};font-size:28px;font-weight:700;letter-spacing:6px;text-transform:uppercase}
+.wrap{position:absolute;left:120px;right:140px;top:0;bottom:0;display:flex;flex-direction:column;justify-content:center}
+.mark{font-family:Georgia,serif;font-size:240px;line-height:.55;color:{{SECONDARY}};opacity:.9;margin-bottom:8px}
+.quote{font-size:54px;font-style:italic;font-weight:300;line-height:1.42;max-width:1500px}
+.attr{margin-top:44px;font-size:32px;font-weight:600;color:{{SECONDARY}}}
+.attr::before{content:'— '}
+.logo{position:absolute;right:48px;bottom:36px}.logo img{height:54px}
+.num{position:absolute;left:48px;bottom:40px;font-size:22px;color:rgba(255,255,255,.45);letter-spacing:3px}
+</style></head><body>
+<div class="kicker">{{KICKER}}</div>
+<div class="wrap"><div class="mark">&bdquo;</div><div class="quote">{{OVERLAY}}</div><div class="attr">{{TITLE}}</div></div>
+<div class="logo">{{LOGO_TAG}}</div><div class="num">{{SCENE_NUM}}</div>
+</body></html>

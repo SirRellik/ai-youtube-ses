@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{width:{{WIDTH}}px;height:{{HEIGHT}}px;font-family:'Segoe UI','Helvetica Neue',sans-serif;color:{{TEXT}};background:{{BG_DARK}};overflow:hidden;position:relative}
+.bg{position:absolute;inset:0;background:url('{{BG_IMAGE}}') center/cover no-repeat}
+.panel{position:absolute;left:0;top:0;bottom:0;width:48%;background:linear-gradient(90deg,rgba(4,22,46,.94) 0%,rgba(4,22,46,.85) 78%,rgba(4,22,46,0) 100%);padding:90px 110px 90px 90px;display:flex;flex-direction:column;justify-content:center}
+.kicker{color:{{SECONDARY}};font-size:27px;font-weight:700;letter-spacing:6px;text-transform:uppercase;margin-bottom:24px}
+.bar{width:110px;height:7px;background:linear-gradient(90deg,{{PRIMARY}},{{SECONDARY}});border-radius:4px;margin-bottom:28px}
+h1{font-size:54px;font-weight:800;line-height:1.22;margin-bottom:30px}
+.body ul{list-style:none}
+.body li{font-size:30px;line-height:1.45;margin-bottom:20px;padding-left:36px;position:relative;color:rgba(255,255,255,.9)}
+.body li::before{content:'\25b8';position:absolute;left:0;color:{{SECONDARY}}}
+.overlay{font-size:30px;color:rgba(255,255,255,.85);line-height:1.45}
+.logo{position:absolute;right:48px;bottom:36px}.logo img{height:54px;filter:drop-shadow(0 2px 8px rgba(0,0,0,.5))}
+.num{position:absolute;left:48px;bottom:40px;font-size:22px;color:rgba(255,255,255,.45);letter-spacing:3px}
+</style></head><body>
+<div class="bg"></div>
+<div class="panel"><div class="kicker">{{KICKER}}</div><div class="bar"></div><h1>{{TITLE}}</h1><div class="body">{{BODY}}</div><div class="overlay">{{OVERLAY}}</div></div>
+<div class="logo">{{LOGO_TAG}}</div><div class="num">{{SCENE_NUM}}</div>
+</body></html>
