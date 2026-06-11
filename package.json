@@ -1,0 +1,17 @@
+{
+  "name": "ai-youtube-ses",
+  "version": "1.0.0",
+  "description": "Autonomous pipeline: SmartEnergyShare marketing articles -> YouTube videos (generic, pluggable for any blog/channel)",
+  "main": "src/orchestrator.js",
+  "scripts": {
+    "start": "node src/orchestrator.js",
+    "once": "node src/orchestrator.js --once",
+    "dry-run": "node src/orchestrator.js --once --no-upload"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.19.0",
+    "googleapis": "^140.0.0",
+    "puppeteer": "^22.0.0"
+  }
+}

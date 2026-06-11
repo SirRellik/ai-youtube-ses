@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><style>
+  * { margin:0; padding:0; box-sizing:border-box; font-family:'Segoe UI',Roboto,Arial,sans-serif; }
+  body { width:{{WIDTH}}px; height:{{HEIGHT}}px; overflow:hidden;
+    background: linear-gradient(135deg, {{BG_DARK}} 0%, {{PRIMARY}} 55%, {{SECONDARY}} 130%); position:relative; }
+  .grid { position:absolute; inset:0; opacity:.12;
+    background-image: linear-gradient({{TEXT}} 1px, transparent 1px), linear-gradient(90deg, {{TEXT}} 1px, transparent 1px);
+    background-size: 80px 80px; }
+  .sun { position:absolute; top:-220px; right:-220px; width:640px; height:640px; border-radius:50%;
+    background: radial-gradient(circle, {{SECONDARY}}55 0%, transparent 70%); }
+  .panel { position:absolute; bottom:-60px; left:-40px; width:520px; height:300px; opacity:.18;
+    background: repeating-linear-gradient(45deg, {{TEXT}} 0 4px, transparent 4px 40px); transform: skewY(-6deg); }
+  .content { position:absolute; inset:0; padding:110px 140px; display:flex; flex-direction:column; justify-content:center; }
+  .kicker { color:{{SECONDARY}}; font-size:34px; font-weight:700; letter-spacing:4px; text-transform:uppercase; margin-bottom:28px; }
+  h1 { color:{{TEXT}}; font-size:{{TITLE_SIZE}}px; font-weight:800; line-height:1.15; margin-bottom:44px;
+    text-shadow:0 4px 24px rgba(0,0,0,.45); max-width:1500px; }
+  .body { color:{{TEXT}}; font-size:44px; line-height:1.5; max-width:1480px; opacity:.94; text-shadow:0 2px 12px rgba(0,0,0,.4); }
+  .body li { margin-bottom:18px; list-style:none; padding-left:46px; position:relative; }
+  .body li:before { content:''; position:absolute; left:0; top:16px; width:22px; height:22px; border-radius:50%; background:{{SECONDARY}}; }
+  .watermark { position:absolute; bottom:46px; right:60px; display:flex; align-items:center; gap:20px; }
+  .watermark img { height:64px; border-radius:10px; }
+  .watermark .wm-text { color:{{TEXT}}; font-size:34px; font-weight:700; opacity:.92; text-shadow:0 2px 8px rgba(0,0,0,.5); }
+  .scene-num { position:absolute; bottom:50px; left:60px; color:{{TEXT}}; opacity:.5; font-size:26px; }
+</style></head>
+<body>
+  <div class="grid"></div><div class="sun"></div><div class="panel"></div>
+  <div class="content">
+    <div class="kicker">{{KICKER}}</div>
+    <h1>{{TITLE}}</h1>
+    <div class="body">{{BODY}}</div>
+  </div>
+  <div class="watermark">{{LOGO_TAG}}<span class="wm-text">{{CHANNEL_NAME}}</span></div>
+  <div class="scene-num">{{SCENE_NUM}}</div>
+</body></html>

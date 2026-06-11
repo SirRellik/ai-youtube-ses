@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><style>
+  * { margin:0; padding:0; box-sizing:border-box; font-family:'Segoe UI',Roboto,Arial,sans-serif; }
+  body { width:{{WIDTH}}px; height:{{HEIGHT}}px; overflow:hidden;
+    background: linear-gradient(120deg, {{BG_DARK}} 0%, {{PRIMARY}} 60%, {{SECONDARY}} 140%); position:relative; }
+  .sun { position:absolute; top:-160px; right:-160px; width:480px; height:480px; border-radius:50%;
+    background: radial-gradient(circle, {{SECONDARY}}66 0%, transparent 70%); }
+  .bar { position:absolute; left:0; top:0; bottom:0; width:18px; background:{{SECONDARY}}; }
+  .content { position:absolute; inset:0; padding:70px 90px; display:flex; flex-direction:column; justify-content:center; }
+  h1 { color:{{TEXT}}; font-size:84px; font-weight:900; line-height:1.1; max-width:1050px;
+    text-shadow:0 6px 30px rgba(0,0,0,.6); }
+  .badge { display:inline-block; background:{{SECONDARY}}; color:#fff; font-size:36px; font-weight:800;
+    padding:12px 30px; border-radius:14px; margin-bottom:36px; width:max-content; }
+  .watermark { position:absolute; bottom:36px; right:46px; display:flex; align-items:center; gap:16px; }
+  .watermark img { height:74px; border-radius:12px; }
+  .watermark .wm-text { color:{{TEXT}}; font-size:40px; font-weight:800; text-shadow:0 2px 10px rgba(0,0,0,.6); }
+</style></head>
+<body>
+  <div class="sun"></div><div class="bar"></div>
+  <div class="content"><div class="badge">{{KICKER}}</div><h1>{{TITLE}}</h1></div>
+  <div class="watermark">{{LOGO_TAG}}<span class="wm-text">{{CHANNEL_NAME}}</span></div>
+</body></html>

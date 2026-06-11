@@ -1,0 +1,15 @@
+node_modules/
+.env
+data/
+output/
+temp/
+logs/
+*.mp4
+*.mp3
+*.wav
+*.webm
+*token*.json
+*oauth*.json
+*client-secret*
+*credentials*
+.DS_Store

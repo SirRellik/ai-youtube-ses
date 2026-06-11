@@ -1,0 +1,23 @@
+{
+  "ses": {
+    "enabled": true,
+    "name": "SmartEnergyShare",
+    "website": "https://smartenergyshare.com",
+    "language": "cs",
+    "voices": { "cs": "cs-CZ-VlastaNeural", "en": "en-US-AndrewMultilingualNeural" },
+    "colors": { "primary": "#0066CC", "secondary": "#00AA44", "text": "#FFFFFF", "bgDark": "#04162e" },
+    "logo": "./branding/ses/logo.png",
+    "source": {
+      "type": "api",
+      "url": "https://admin.smartenergyshare.com/api/marketing/articles",
+      "fallbackDir": "/opt/nyx/nyx-neural-data/satellite-blogs"
+    },
+    "youtube": {
+      "credentialsPath": "./data/youtube/client-secret.json",
+      "tokenPath": "./data/youtube/youtube-oauth.json",
+      "privacyStatus": "public",
+      "categoryId": "28",
+      "baseTags": ["solární energie", "fotovoltaika", "baterie", "energetické komunity", "smart grid", "sdílení energie", "SmartEnergyShare"]
+    }
+  }
+}

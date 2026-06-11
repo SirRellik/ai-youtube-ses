@@ -1,0 +1,10 @@
+{
+  "pollIntervalHours": 6,
+  "maxVideosPerCycle": 2,
+  "dashboardPort": 3041,
+  "video": { "width": 1920, "height": 1080, "fps": 25, "minSceneSec": 4 },
+  "thumbnail": { "width": 1280, "height": 720 },
+  "outputDir": "./output",
+  "tempDir": "./temp",
+  "stateFile": "./data/state/processed.json"
+}
