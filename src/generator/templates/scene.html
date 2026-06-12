@@ -21,6 +21,8 @@
   .watermark img { height:64px; border-radius:10px; }
   .watermark .wm-text { color:{{TEXT}}; font-size:34px; font-weight:700; opacity:.92; text-shadow:0 2px 8px rgba(0,0,0,.5); }
   .scene-num { position:absolute; bottom:50px; left:60px; color:{{TEXT}}; opacity:.5; font-size:26px; }
+  .progress{position:absolute;left:0;right:0;bottom:0;height:12px;background:rgba(255,255,255,.14)}
+  .progress .fill{height:100%;width:{{PROGRESS}}%;background:linear-gradient(90deg,{{PRIMARY}},{{SECONDARY}});border-radius:0 6px 6px 0}
 </style></head>
 <body>
   <div class="grid"></div><div class="sun"></div><div class="panel"></div>
@@ -31,4 +33,5 @@
   </div>
   <div class="watermark">{{LOGO_TAG}}<span class="wm-text">{{CHANNEL_NAME}}</span></div>
   <div class="scene-num">{{SCENE_NUM}}</div>
+  <div class="progress"><div class="fill"></div></div>
 </body></html>

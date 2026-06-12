@@ -1,7 +1,9 @@
 /**
- * video-generator.js - Screenplay -> MP4 (v2)
- * Director scenes -> per-visual_type templates + Pexels photos ->
- * Puppeteer renders -> per-scene FFmpeg encode -> concat -> ambient music bed.
+ * video-generator.js - Screenplay -> MP4 (v6)
+ * Director scenes -> per-visual_type templates + AI/Pexels photos ->
+ * Puppeteer renders text overlay (alpha PNG) -> FFmpeg Ken Burns zoom/pan on
+ * the photo + static overlay composite -> crossfade transitions between
+ * scenes -> ambient music bed.
  * Writes <id>-meta.json (SEO pack + AI image prompts) next to the video.
  */
 const fs = require('fs');
@@ -20,7 +22,11 @@ const TYPE_TO_TEMPLATE = {
   cta: 'cta', photo: 'photo-overlay', photo_overlay: 'photo-overlay',
   product_showcase: 'photo-overlay'
 };
+// templates that draw the scene photo as a full background -> photo gets
+// Ken Burns motion in FFmpeg while the rendered text overlay stays static
+const PHOTO_TEMPLATES = new Set(['hero', 'photo-overlay', 'infographic', 'comparison']);
 const EMPTY_BG = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+const FADE_SEC = 0.5;
 
 const templateCache = {};
 function loadTemplate(name) {
@@ -32,7 +38,7 @@ function loadTemplate(name) {
   return templateCache[name];
 }
 
-function ffmpeg(args, timeoutMs = 300000) {
+function ffmpeg(args, timeoutMs = 600000) {
   return new Promise((resolve, reject) => {
     execFile('ffmpeg', ['-y', ...args], { timeout: timeoutMs, maxBuffer: 32 * 1024 * 1024 }, (err, so, se) => {
       if (err) return reject(new Error(`ffmpeg failed: ${String(se).slice(-800)}`));
@@ -59,13 +65,18 @@ function bodyHtml(scene, tplName) {
     const half = Math.ceil(bullets.length / 2) || 1;
     const col = (items, label) =>
       `<div class="col"><div class="col-label">${label}</div>${items.map((b) => `<p>${esc(b)}</p>`).join('') || '<p>&nbsp;</p>'}</div>`;
-    return col(bullets.slice(0, half), 'KL\u00cd\u010cOV\u00c9 BODY') + col(bullets.slice(half), 'DAL\u0160\u00cd FAKTA');
+    return col(bullets.slice(0, half), 'KLÍČOVÉ BODY') + col(bullets.slice(half), 'DALŠÍ FAKTA');
   }
   if (!bullets.length) return '';
   return `<ul>${bullets.map((b) => `<li>${esc(b)}</li>`).join('')}</ul>`;
 }
 
-function fillTemplate(scene, idx, total, channel, cfg, bgFile) {
+/**
+ * compositeBg=true renders the template with a transparent body and hidden
+ * .bg layer; the photo is animated separately in FFmpeg and the PNG is
+ * composited on top of it.
+ */
+function fillTemplate(scene, idx, total, channel, cfg, bgFile, progressPct, compositeBg) {
   const tplName = TYPE_TO_TEMPLATE[scene.visual_type] || 'photo-overlay';
   return loadTemplate(tplName)
     .replace(/{{WIDTH}}/g, cfg.video.width).replace(/{{HEIGHT}}/g, cfg.video.height)
@@ -75,20 +86,104 @@ function fillTemplate(scene, idx, total, channel, cfg, bgFile) {
     .replace(/{{TITLE_SIZE}}/g, String(scene.title && scene.title.length > 70 ? 56 : 76))
     .replace(/{{OVERLAY}}/g, esc(scene.text_overlay || ''))
     .replace(/{{BODY}}/g, bodyHtml(scene, tplName))
-    .replace(/{{BG_IMAGE}}/g, bgFile ? `file://${path.resolve(bgFile)}` : EMPTY_BG)
+    .replace(/{{BODY_BG}}/g, compositeBg ? 'transparent' : (channel.colors.bgDark || '#04162e'))
+    .replace(/{{BG_DISPLAY}}/g, compositeBg || !bgFile ? 'none' : 'block')
+    .replace(/{{BG_IMAGE}}/g, !compositeBg && bgFile ? `file://${path.resolve(bgFile)}` : EMPTY_BG)
+    .replace(/{{PROGRESS}}/g, String(Math.max(2, Math.min(100, Math.round(progressPct || 0)))))
     .replace(/{{LOGO_TAG}}/g, logoTag(channel)).replace(/{{CHANNEL_NAME}}/g, esc(channel.name))
     .replace(/{{SCENE_NUM}}/g, `${idx + 1} / ${total}`);
 }
 
-async function renderPng(browser, html, outPng, width, height) {
+async function renderPng(browser, html, outPng, width, height, transparent) {
   const page = await browser.newPage();
   try {
     await page.setViewport({ width, height });
     await page.setContent(html, { waitUntil: 'networkidle0', timeout: 30000 });
-    await page.screenshot({ path: outPng, type: 'png' });
+    await page.screenshot({ path: outPng, type: 'png', omitBackground: !!transparent });
   } finally {
     await page.close();
   }
+}
+
+/** Ken Burns variants - alternate zoom in / zoom out / pan L>R / pan R>L */
+function kenBurns(idx, frames, zMax) {
+  const fr = Math.max(frames - 1, 1);
+  const z = zMax || 1.12;
+  const grow = (z - 1).toFixed(4);
+  const center = { x: 'iw/2-(iw/zoom/2)', y: 'ih/2-(ih/zoom/2)' };
+  const variants = [
+    { z: `1+${grow}*on/${fr}`, ...center },
+    { z: `${z}-${grow}*on/${fr}`, ...center },
+    { z: '1.10', x: `(iw-iw/zoom)*on/${fr}`, y: '(ih-ih/zoom)/2' },
+    { z: '1.10', x: `(iw-iw/zoom)*(1-on/${fr})`, y: '(ih-ih/zoom)/2' }
+  ];
+  return variants[idx % variants.length];
+}
+
+function zoompanFilter(kb, frames, w, h, fps) {
+  return `zoompan=z='${kb.z}':x='${kb.x}':y='${kb.y}':d=${frames}:s=${w}x${h}:fps=${fps}`;
+}
+
+/** Encode one scene clip: animated photo bg + static overlay, or animated full frame. */
+async function encodeScene({ idx, bgFile, overlayPng, fullPng, mp3, clipDur, cfg, outClip }) {
+  const { width: W, height: H, fps } = cfg.video;
+  const frames = Math.ceil(clipDur * fps) + 2;
+  const common = [
+    '-c:v', 'libx264', '-preset', 'medium', '-crf', '21',
+    '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-b:a', '160k', '-ar', '44100',
+    '-t', clipDur.toFixed(2), outClip
+  ];
+  if (bgFile && overlayPng) {
+    // photo gets Ken Burns motion, text overlay stays crisp and static
+    const kb = kenBurns(idx, frames, 1.12);
+    const upW = W + (W >> 1), upH = H + (H >> 1); // 1.5x upscale reduces zoompan jitter
+    await ffmpeg([
+      '-i', bgFile, '-i', overlayPng, '-i', mp3,
+      '-filter_complex',
+      `[0:v]scale=${upW}:${upH}:force_original_aspect_ratio=increase,crop=${upW}:${upH},` +
+      `${zoompanFilter(kb, frames, W, H, fps)}[bg];` +
+      `[bg][1:v]overlay=0:0,format=yuv420p[v];[2:a]apad[a]`,
+      '-map', '[v]', '-map', '[a]', ...common
+    ]);
+  } else {
+    // gradient/text scene: static frame (zooming would crop the progress bar)
+    await ffmpeg([
+      '-loop', '1', '-framerate', String(fps), '-i', fullPng, '-i', mp3,
+      '-filter_complex', `[0:v]format=yuv420p[v];[1:a]apad[a]`,
+      '-map', '[v]', '-map', '[a]', '-r', String(fps), ...common
+    ]);
+  }
+}
+
+/** Merge scene clips with video crossfades + audio crossfades. */
+async function mergeWithTransitions(clips, clipDurs, merged, cfg) {
+  if (clips.length === 1) {
+    fs.copyFileSync(clips[0], merged);
+    return;
+  }
+  const inputs = clips.flatMap((c) => ['-i', c]);
+  const vParts = [];
+  const aParts = [];
+  let offset = 0;
+  let vPrev = '[0:v]', aPrev = '[0:a]';
+  for (let i = 1; i < clips.length; i++) {
+    offset += clipDurs[i - 1] - FADE_SEC;
+    const vOut = i === clips.length - 1 ? '[vout]' : `[v${i}]`;
+    const aOut = i === clips.length - 1 ? '[aout]' : `[a${i}]`;
+    vParts.push(`${vPrev}[${i}:v]xfade=transition=fade:duration=${FADE_SEC}:offset=${offset.toFixed(2)}${vOut}`);
+    // c2=nofade: incoming narration starts at full volume, outgoing padded silence fades
+    aParts.push(`${aPrev}[${i}:a]acrossfade=d=${FADE_SEC}:c1=tri:c2=nofade${aOut}`);
+    vPrev = vOut;
+    aPrev = aOut;
+  }
+  await ffmpeg([
+    ...inputs,
+    '-filter_complex', [...vParts, ...aParts].join(';'),
+    '-map', '[vout]', '-map', '[aout]',
+    '-c:v', 'libx264', '-preset', 'medium', '-crf', '21', '-r', String(cfg.video.fps),
+    '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-b:a', '160k', '-ar', '44100',
+    merged
+  ]);
 }
 
 async function generateVideo(screenplay, channel, cfg) {
@@ -97,46 +192,61 @@ async function generateVideo(screenplay, channel, cfg) {
   fs.mkdirSync(cfg.outputDir, { recursive: true });
   const cacheDir = cfg.cacheDir || './data/cache';
   const voice = channel.voices[screenplay.language] || channel.voices[channel.language];
+  const scenes = screenplay.scenes;
+  const n = scenes.length;
 
+  // Pass 1: narration for every scene first, so scene timing (and the
+  // progress bar) is known before any frame is rendered.
+  const mp3s = [];
+  const durs = []; // visible scene length on the final timeline
+  for (let i = 0; i < n; i++) {
+    const mp3 = path.join(work, `scene-${i}.mp3`);
+    await synthesize(scenes[i].narration, voice, mp3);
+    const audioDur = await getAudioDuration(mp3);
+    durs.push(Math.max(cfg.video.minSceneSec, audioDur + 0.8));
+    mp3s.push(mp3);
+  }
+  const totalDur = durs.reduce((a, b) => a + b, 0);
+
+  // Pass 2: visuals - source image, render overlay, encode Ken Burns clip
   const browser = await puppeteer.launch({
     headless: 'new',
     args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
   });
-
   const sceneClips = [];
-  let totalDur = 0;
+  const clipDurs = [];
+  let elapsed = 0;
   try {
-    for (let i = 0; i < screenplay.scenes.length; i++) {
-      const scene = screenplay.scenes[i];
+    for (let i = 0; i < n; i++) {
+      const scene = scenes[i];
+      console.log(`[VideoGen] Scene ${i + 1}/${n} [${scene.visual_type}]: ${String(scene.title).slice(0, 60)}`);
+      const tplName = TYPE_TO_TEMPLATE[scene.visual_type] || 'photo-overlay';
+      const bgFile = PHOTO_TEMPLATES.has(tplName)
+        ? await sourceSceneImage(scene, screenplay.article, cacheDir, i)
+        : null;
+      elapsed += durs[i];
+      const progressPct = (elapsed / totalDur) * 100;
+      const composite = !!bgFile;
       const png = path.join(work, `scene-${i}.png`);
-      const mp3 = path.join(work, `scene-${i}.mp3`);
+      const html = fillTemplate(scene, i, n, channel, cfg, bgFile, progressPct, composite);
+      await renderPng(browser, html, png, cfg.video.width, cfg.video.height, composite);
+
+      // crossfade overlap eats FADE_SEC, pad every clip except the last
+      const clipDur = durs[i] + (i < n - 1 ? FADE_SEC : 0);
       const clip = path.join(work, `scene-${i}.mp4`);
-
-      console.log(`[VideoGen] Scene ${i + 1}/${screenplay.scenes.length} [${scene.visual_type}]: ${String(scene.title).slice(0, 60)}`);
-      const bgFile = await sourceSceneImage(scene, screenplay.article, cacheDir, i);
-      await renderPng(browser, fillTemplate(scene, i, screenplay.scenes.length, channel, cfg, bgFile), png, cfg.video.width, cfg.video.height);
-      await synthesize(scene.narration, voice, mp3);
-      const audioDur = await getAudioDuration(mp3);
-      const dur = Math.max(cfg.video.minSceneSec, audioDur + 0.8);
-      totalDur += dur;
-
-      await ffmpeg([
-        '-loop', '1', '-i', png, '-i', mp3,
-        '-c:v', 'libx264', '-preset', 'medium', '-crf', '21', '-r', String(cfg.video.fps),
-        '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-b:a', '160k', '-ar', '44100',
-        '-af', 'apad', '-t', dur.toFixed(2),
-        clip
-      ]);
+      await encodeScene({
+        idx: i, bgFile, overlayPng: composite ? png : null, fullPng: png,
+        mp3: mp3s[i], clipDur, cfg, outClip: clip
+      });
       sceneClips.push(clip);
+      clipDurs.push(clipDur);
     }
   } finally {
     await browser.close();
   }
 
-  const listFile = path.join(work, 'concat.txt');
-  fs.writeFileSync(listFile, sceneClips.map((c) => `file '${path.resolve(c)}'`).join('\n'));
   const merged = path.join(work, 'merged.mp4');
-  await ffmpeg(['-f', 'concat', '-safe', '0', '-i', listFile, '-c', 'copy', merged]);
+  await mergeWithTransitions(sceneClips, clipDurs, merged, cfg);
 
   // ambient music bed under the narration
   const outFile = path.join(cfg.outputDir, `${screenplay.articleId}.mp4`);
@@ -155,7 +265,7 @@ async function generateVideo(screenplay, channel, cfg) {
     fs.copyFileSync(merged, outFile);
   }
 
-  // metadata: SEO pack + AI image prompts for future Gemini/DALL-E/Midjourney use
+  // metadata: SEO pack + AI image prompts
   const meta = {
     articleId: screenplay.articleId,
     title: screenplay.title,
@@ -163,6 +273,7 @@ async function generateVideo(screenplay, channel, cfg) {
     imagePrompts: buildPromptsForScreenplay(screenplay),
     scenes: screenplay.scenes.map((s) => ({ visual_type: s.visual_type, title: s.title, duration_hint: s.duration_hint })),
     totalDurationSec: Math.round(totalDur),
+    effects: { kenBurns: true, crossfadeSec: FADE_SEC },
     generatedAt: new Date().toISOString()
   };
   fs.writeFileSync(path.join(cfg.outputDir, `${screenplay.articleId}-meta.json`), JSON.stringify(meta, null, 2));

@@ -9,8 +9,11 @@ background:radial-gradient(1300px 850px at 50% 28%,#0a2a52 0%,{{BG_DARK}} 72%)}
 .context{font-size:42px;line-height:1.4;color:rgba(255,255,255,.92);max-width:1450px}
 .logo{position:absolute;right:48px;bottom:36px}.logo img{height:54px}
 .num{position:absolute;left:48px;bottom:40px;font-size:22px;color:rgba(255,255,255,.45);letter-spacing:3px}
+.progress{position:absolute;left:0;right:0;bottom:0;height:12px;background:rgba(255,255,255,.14)}
+.progress .fill{height:100%;width:{{PROGRESS}}%;background:linear-gradient(90deg,{{PRIMARY}},{{SECONDARY}});border-radius:0 6px 6px 0}
 </style></head><body>
 <div class="kicker">{{KICKER}}</div>
 <div class="wrap"><div class="big">{{OVERLAY}}</div><div class="context">{{TITLE}}</div></div>
 <div class="logo">{{LOGO_TAG}}</div><div class="num">{{SCENE_NUM}}</div>
+<div class="progress"><div class="fill"></div></div>
 </body></html>

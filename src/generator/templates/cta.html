@@ -11,6 +11,8 @@ h1{font-size:80px;font-weight:800;line-height:1.15;max-width:1500px}
 .chip{background:rgba(255,255,255,.08);border:2px solid rgba(255,255,255,.2);padding:20px 38px;border-radius:50px;font-size:30px;font-weight:600}
 .site{margin-top:34px;background:linear-gradient(90deg,{{PRIMARY}},{{SECONDARY}});padding:28px 72px;border-radius:60px;font-size:46px;font-weight:800;letter-spacing:1px;box-shadow:0 10px 40px rgba(0,102,204,.45)}
 .num{position:absolute;left:48px;bottom:40px;font-size:22px;color:rgba(255,255,255,.45);letter-spacing:3px}
+.progress{position:absolute;left:0;right:0;bottom:0;height:12px;background:rgba(255,255,255,.14)}
+.progress .fill{height:100%;width:{{PROGRESS}}%;background:linear-gradient(90deg,{{PRIMARY}},{{SECONDARY}});border-radius:0 6px 6px 0}
 </style></head><body>
 <div class="wrap">
   <div class="logo-big">{{LOGO_TAG}}</div>
@@ -20,4 +22,5 @@ h1{font-size:80px;font-weight:800;line-height:1.15;max-width:1500px}
   <div class="site">{{OVERLAY}}</div>
 </div>
 <div class="num">{{SCENE_NUM}}</div>
+<div class="progress"><div class="fill"></div></div>
 </body></html>

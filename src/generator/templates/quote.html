@@ -10,8 +10,11 @@ body{width:{{WIDTH}}px;height:{{HEIGHT}}px;font-family:'Segoe UI','Helvetica Neu
 .attr::before{content:'— '}
 .logo{position:absolute;right:48px;bottom:36px}.logo img{height:54px}
 .num{position:absolute;left:48px;bottom:40px;font-size:22px;color:rgba(255,255,255,.45);letter-spacing:3px}
+.progress{position:absolute;left:0;right:0;bottom:0;height:12px;background:rgba(255,255,255,.14)}
+.progress .fill{height:100%;width:{{PROGRESS}}%;background:linear-gradient(90deg,{{PRIMARY}},{{SECONDARY}});border-radius:0 6px 6px 0}
 </style></head><body>
 <div class="kicker">{{KICKER}}</div>
 <div class="wrap"><div class="mark">&bdquo;</div><div class="quote">{{OVERLAY}}</div><div class="attr">{{TITLE}}</div></div>
 <div class="logo">{{LOGO_TAG}}</div><div class="num">{{SCENE_NUM}}</div>
+<div class="progress"><div class="fill"></div></div>
 </body></html>
