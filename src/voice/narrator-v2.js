@@ -33,8 +33,18 @@ const LLM_HUB_PATH = '/opt/nyx/nyx-neural-data/llm-hub.json';
 const MODELS = ['gemini-2.5-flash-preview-tts', 'gemini-3.1-flash-tts-preview'];
 const DEFAULT_VOICE = 'Charon'; // informative narrator; Sulafat=warm, Kore=firm female
 const DEFAULT_STYLE =
-  'Přečti následující text jako zkušený český moderátor dokumentárního pořadu - ' +
-  'přirozeně, srozumitelně, v klidném tempu a se zaujetím:';
+  'JAZYK: Čeština (cs-CZ). ' +
+  'PRAVIDLA VÝSLOVNOSTI: ' +
+  '1. Vždy vyslovuj podle českých fonetických pravidel, NIKDY anglicky. ' +
+  '2. "ch" se vyslovuje jako české /x/ (jako v "chleba"), NE jako anglické "č". ' +
+  '3. Přízvuk je VŽDY na první slabice slova. ' +
+  '4. Háčky a čárky striktně dodržuj: š=š, č=č, ř=ř, ž=ž, ě=je, ú/ů=ú, í=í, á=á, é=é, ý=ý, ď=ď, ť=ť, ň=ň. ' +
+  '5. "ě" po d,t,n změkčuje: "děti"=ďeťi, "tělo"=ťelo, "něco"=ňeco. ' +
+  '6. Skupiny "mě" čti jako "mňe". ' +
+  'STYL: Čti jako zkušený český moderátor dokumentárního pořadu. ' +
+  'Přirozené tempo, klidný tón, srozumitelná artikulace. ' +
+  'Správné skloňování a intonace české věty (klesavá na konci oznamovací věty, stoupavá u otázky). ' +
+  'TEXT:';
 const MAX_CHUNK_CHARS = 3500;   // scenes are far shorter; safety net for long texts
 const MIN_REQUEST_GAP_MS = 1500;
 const QUOTA_COOLDOWN_MS = 15 * 60 * 1000;
