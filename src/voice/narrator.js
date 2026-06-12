@@ -1,11 +1,10 @@
 /**
- * narrator-v2.js - Natural Czech TTS narration
+ * narrator-v3.js - Natural Czech TTS
  * Voice: cs-CZ-VlastaNeural via edge-tts
- * Fixes: URL reading, markdown symbols, natural pacing, SSML
+ * Complete text sanitization for human-like reading
  */
 const { execFile } = require('child_process');
 const fs = require('fs');
-const path = require('path');
 
 function run(cmd, args, timeoutMs = 120000) {
   return new Promise((resolve, reject) => {
@@ -17,49 +16,103 @@ function run(cmd, args, timeoutMs = 120000) {
 }
 
 /**
- * Sanitize text for natural Czech speech:
- * - Remove markdown symbols (##, **, *, etc.)
- * - Convert URLs to human-readable form
- * - Convert abbreviations to spoken form
- * - Add natural pauses
+ * Complete text sanitization - remove EVERYTHING a human wouldn't read aloud
  */
 function sanitizeForSpeech(text) {
   let s = String(text);
 
-  // Remove markdown formatting
-  s = s.replace(/#{1,6}\s*/g, '');           // ## headings
-  s = s.replace(/\*\*([^*]+)\*\*/g, '$1');   // **bold**
-  s = s.replace(/\*([^*]+)\*/g, '$1');       // *italic*
-  s = s.replace(/__([^_]+)__/g, '$1');       // __underline__
-  s = s.replace(/_([^_]+)_/g, '$1');         // _italic_
-  s = s.replace(/`([^`]+)`/g, '$1');         // `code`
-  s = s.replace(/```[\s\S]*?```/g, '');      // code blocks
-  s = s.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1'); // [link](url) -> link text
-  s = s.replace(/!\[.*?\]\(.*?\)/g, '');     // images
-  s = s.replace(/^[-*+]\s+/gm, '');          // bullet points
-  s = s.replace(/^\d+\.\s+/gm, '');          // numbered lists
+  // === MARKDOWN removal ===
+  s = s.replace(/```[\s\S]*?```/g, '');          // code blocks
+  s = s.replace(/`([^`]*)`/g, '$1');             // inline code
+  s = s.replace(/#{1,6}\s*/g, '');                // headings
+  s = s.replace(/\*\*\*([^*]+)\*\*\*/g, '$1');   // ***bold italic***
+  s = s.replace(/\*\*([^*]+)\*\*/g, '$1');        // **bold**
+  s = s.replace(/\*([^*]+)\*/g, '$1');            // *italic*
+  s = s.replace(/__([^_]+)__/g, '$1');            // __underline__
+  s = s.replace(/_([^_]+)_/g, '$1');              // _italic_
+  s = s.replace(/~~([^~]+)~~/g, '$1');            // ~~strikethrough~~
+  s = s.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1');  // [link](url)
+  s = s.replace(/!\[([^\]]*)\]\([^)]+\)/g, '');   // ![image](url)
+  s = s.replace(/^[-*+]\s+/gm, '');               // bullet points
+  s = s.replace(/^\d+\.\s+/gm, '');               // numbered lists
+  s = s.replace(/^>\s*/gm, '');                    // blockquotes
+  s = s.replace(/\|/g, ', ');                      // table pipes
+  s = s.replace(/^-{3,}$/gm, '');                 // horizontal rules
 
-  // Convert URLs to human-readable Czech
-  s = s.replace(/https?:\/\/(?:www\.)?smartenergyshare\.com\/?[^\s,.)"]*/gi,
-    'na webu Smart Energy Share');
-  s = s.replace(/https?:\/\/(?:www\.)?whitelabel\.smartenergyshare\.com\/?[^\s,.)"]*/gi,
-    'na platformě Smart Energy Share');
-  s = s.replace(/https?:\/\/(?:www\.)?([a-zA-Z0-9.-]+)\.[a-z]{2,}[^\s,.)"]*/gi,
-    (_, domain) => `na webu ${domain.replace(/[-_.]/g, ' ')}`);
-  s = s.replace(/www\.[a-zA-Z0-9.-]+\.[a-z]{2,}[^\s,.)"]*/gi,
-    (match) => `na webu ${match.replace(/^www\./, '').replace(/\.[a-z]+$/, '').replace(/[-_.]/g, ' ')}`);
+  // === Stray markdown/special chars ===
+  s = s.replace(/\*+/g, '');                       // any remaining asterisks
+  s = s.replace(/#+/g, '');                        // any remaining hashes
+  s = s.replace(/`+/g, '');                        // any remaining backticks
+  s = s.replace(/~+/g, '');                        // any remaining tildes
 
-  // Abbreviations and units to Czech spoken form
-  s = s.replace(/\bkWh\b/gi, 'kilowatthodin');
-  s = s.replace(/\bMWh\b/gi, 'megawatthodin');
-  s = s.replace(/\bkWp\b/gi, 'kilowatt peak');
-  s = s.replace(/\bkW\b/gi, 'kilowatt');
-  s = s.replace(/\bMW\b/gi, 'megawatt');
-  s = s.replace(/\bGW\b/gi, 'gigawatt');
+  // === URLs - convert to human speech ===
+  s = s.replace(/https?:\/\/(?:www\.)?smartenergyshare\.com[^\s,.)\"']*/gi, 'smart energy share');
+  s = s.replace(/https?:\/\/(?:www\.)?whitelabel\.smartenergyshare\.com[^\s,.)\"']*/gi, 'platforma smart energy share');
+  s = s.replace(/https?:\/\/(?:www\.)?([a-zA-Z0-9][-a-zA-Z0-9]*)\.[a-z]{2,}[^\s,.)\"']*/gi, (_, d) => d.replace(/[-_]/g, ' '));
+  s = s.replace(/www\.\S+/gi, '');                // remove remaining www. links
+  s = s.replace(/\S+\.(com|cz|eu|org|net|io)\b/gi, ''); // remove remaining domains
+
+  // === HTML entities ===
+  s = s.replace(/&amp;/g, 'a');
+  s = s.replace(/&nbsp;/g, ' ');
+  s = s.replace(/&ndash;/g, ', ');
+  s = s.replace(/&mdash;/g, ', ');
+  s = s.replace(/&hellip;/g, '...');
+  s = s.replace(/&[a-zA-Z]+;/g, ' ');
+  s = s.replace(/&#\d+;/g, ' ');
+
+  // === Encoding artifacts ===
+  s = s.replace(/\\u[\da-fA-F]{4}/g, '');          // unicode escapes
+  s = s.replace(/\\n/g, '. ');                      // literal \n
+  s = s.replace(/\\r/g, '');                        // literal \r
+  s = s.replace(/\\t/g, ' ');                       // literal \t
+  s = s.replace(/\\/g, '');                         // remaining backslashes
+
+  // === Special characters humans don't read ===
+  s = s.replace(/[<>{}[\]()]/g, ' ');              // brackets
+  s = s.replace(/\//g, ' ');                        // forward slashes
+  s = s.replace(/[""„"]/g, '');                     // fancy quotes - just remove
+  s = s.replace(/[''‚']/g, '');                     // fancy single quotes
+  s = s.replace(/[–—]/g, ', ');                     // em/en dashes to pauses
+  s = s.replace(/\.\.\./g, '. ');                   // ellipsis
+  s = s.replace(/…/g, '. ');                        // unicode ellipsis
+  s = s.replace(/[•·■□▪▸►▶→←↑↓↔⇒⇐]/g, '');       // bullets and arrows
+  s = s.replace(/[©®™℃°§†‡¶]/g, '');               // misc symbols
+  s = s.replace(/\s*[:;]\s*$/gm, '.');             // trailing colons/semicolons
+
+  // === Units and abbreviations to Czech speech ===
+  s = s.replace(/(\d)\s*kWh/gi, '$1 kilowatthodin');
+  s = s.replace(/(\d)\s*MWh/gi, '$1 megawatthodin');
+  s = s.replace(/(\d)\s*GWh/gi, '$1 gigawatthodin');
+  s = s.replace(/(\d)\s*kWp/gi, '$1 kilowatt píku');
+  s = s.replace(/(\d)\s*kW\b/gi, '$1 kilowattů');
+  s = s.replace(/(\d)\s*MW\b/gi, '$1 megawattů');
+  s = s.replace(/(\d)\s*GW\b/gi, '$1 gigawattů');
+  s = s.replace(/(\d)\s*TWh/gi, '$1 terawatthodin');
+
+  // === Percentages - correct Czech declension ===
+  s = s.replace(/(\d+)\s*%/g, (_, n) => {
+    const num = parseInt(n);
+    if (num === 1) return num + ' procento';
+    if (num >= 2 && num <= 4) return num + ' procenta';
+    return num + ' procent';
+  });
+
+  // === Temperature ===
+  s = s.replace(/(\d+)\s*°C/g, '$1 stupňů Celsia');
+  s = s.replace(/(\d+)\s*°/g, '$1 stupňů');
+
+  // === Currency ===
+  s = s.replace(/(\d[\d\s]*)\s*Kč/g, '$1 korun');
+  s = s.replace(/(\d[\d\s]*)\s*€/g, '$1 eur');
+  s = s.replace(/(\d[\d\s]*)\s*\$/g, '$1 dolarů');
+  s = s.replace(/(\d[\d\s]*)\s*CZK/gi, '$1 korun');
+  s = s.replace(/(\d[\d\s]*)\s*EUR\b/gi, '$1 eur');
+
+  // === Common Czech abbreviations ===
   s = s.replace(/\bFVE\b/g, 'fotovoltaické elektrárny');
   s = s.replace(/\bOZE\b/g, 'obnovitelné zdroje energie');
   s = s.replace(/\bERÚ\b/g, 'Energetický regulační úřad');
-  s = s.replace(/\bČEPS\b/g, 'ČEPS');
   s = s.replace(/\bBESS\b/g, 'bateriové úložiště');
   s = s.replace(/\bEV\b/g, 'elektromobil');
   s = s.replace(/\bCO2\b/gi, 'CO dva');
@@ -67,82 +120,53 @@ function sanitizeForSpeech(text) {
   s = s.replace(/\bIoT\b/g, 'internet věcí');
   s = s.replace(/\bAPI\b/g, 'A P I');
   s = s.replace(/\bSEO\b/g, 'S E O');
-  s = s.replace(/\bCZK\b/gi, 'korun');
-  s = s.replace(/\bEUR\b/gi, 'eur');
-  s = s.replace(/\bUSD\b/gi, 'dolarů');
-  s = s.replace(/\bKč\b/g, 'korun');
-  s = s.replace(/\b€\b/g, 'eur');
-  s = s.replace(/\$(\d)/g, '$1 dolarů');
+  s = s.replace(/\bmj\./gi, 'mimo jiné');
+  s = s.replace(/\btj\./gi, 'to jest');
+  s = s.replace(/\btř\./gi, 'třída');
+  s = s.replace(/\bč\./gi, 'číslo');
+  s = s.replace(/\btis\.\s/gi, 'tisíc ');
+  s = s.replace(/\bmil\.\s/gi, 'milionů ');
+  s = s.replace(/\bmld\.\s/gi, 'miliard ');
 
-  // Numbers with units
-  s = s.replace(/(\d+)\s*%/g, '$1 procent');
-  s = s.replace(/(\d+)\s*°C/g, '$1 stupňů Celsia');
-
-  // Smart Energy Share pronunciation
+  // === Brand names pronunciation ===
   s = s.replace(/SmartEnergyShare/gi, 'Smart Energy Share');
   s = s.replace(/smartenergyshare/gi, 'Smart Energy Share');
 
-  // Clean up special chars
-  s = s.replace(/&amp;/g, 'a');
-  s = s.replace(/&nbsp;/g, ' ');
-  s = s.replace(/&[a-z]+;/g, ' ');
-  s = s.replace(/[<>{}[\]|\\]/g, ' ');
-  s = s.replace(/\(\s*\)/g, '');             // empty parens
-  s = s.replace(/\s*[–—]\s*/g, ', ');        // em/en dashes to pauses
-  s = s.replace(/\s{2,}/g, ' ');
+  // === Numbers with spaces (thousands separator) ===
+  s = s.replace(/(\d)\s(\d{3})\b/g, '$1$2');      // "200 000" -> "200000" for TTS
+
+  // === Orphaned/stray punctuation ===
+  s = s.replace(/[""„“”]/g, '');   // all types of quotes
+  s = s.replace(/[''\u2018\u2019\u201a]/g, ''); // single quotes
+  s = s.replace(/\s*[;:]\s*(?=[A-Z])/g, '. ');   // semicolons before sentences
+  s = s.replace(/\(\s*\)/g, '');                  // empty parens
+
+  // === Large numbers - add spaces for natural reading ===
+  s = s.replace(/(\d)(\d{6})(?!\d)/g, '$1 $2');   // millions
+  s = s.replace(/(\d)(\d{3})(?!\d)/g, '$1 $2');   // thousands (after units converted)
+
+  // === Clean up whitespace ===
+  s = s.replace(/\s+/g, ' ');
+  s = s.replace(/\s+\./g, '.');
+  s = s.replace(/\.\s*\./g, '.');
+  s = s.replace(/,\s*,/g, ',');
+  s = s.replace(/^\s+|\s+$/g, '');
+
+  // === Remove very short or empty sentences ===
+  s = s.replace(/\.\s*\./g, '.');
   s = s.trim();
 
   return s;
 }
 
-/**
- * Build SSML for natural speech with pauses and emphasis
- */
-function buildSSML(text, rate) {
+async function synthesize(text, voice, outFile) {
   const clean = sanitizeForSpeech(text);
-  const sentences = clean.match(/[^.!?]+[.!?]+/g) || [clean];
-
-  let ssml = '<speak>';
-  for (let i = 0; i < sentences.length; i++) {
-    const s = sentences[i].trim();
-    if (!s) continue;
-
-    if (i === 0) {
-      // First sentence slightly slower for clarity
-      ssml += `<prosody rate="${rate}">${s}</prosody>`;
-    } else {
-      ssml += `<break time="400ms"/><prosody rate="${rate}">${s}</prosody>`;
-    }
-  }
-  ssml += '<break time="300ms"/></speak>';
-  return ssml;
-}
-
-/**
- * Synthesize speech with natural Czech prosody
- */
-async function synthesize(text, voice, outFile, options = {}) {
-  const rate = options.rate || '-5%';  // slightly slower = more natural
-  const clean = sanitizeForSpeech(text);
-
   if (!clean || clean.length < 3) {
     throw new Error('empty narration text after sanitization');
   }
 
-  // Try SSML first for natural pauses
-  const ssml = buildSSML(text, rate);
-  const tmpSsml = outFile + '.ssml.txt';
-
-  try {
-    fs.writeFileSync(tmpSsml, ssml);
-    await run('edge-tts', ['--voice', voice, '--file', tmpSsml, '--write-media', outFile]);
-  } catch (e) {
-    // Fallback: plain text without SSML (some edge-tts versions don't support SSML well)
-    console.log('[Narrator] SSML failed, using plain text:', e.message.slice(0, 80));
-    await run('edge-tts', ['--voice', voice, '--text', clean, '--write-media', outFile]);
-  } finally {
-    try { fs.unlinkSync(tmpSsml); } catch {}
-  }
+  // Use plain text (SSML often gets read literally by edge-tts)
+  await run('edge-tts', ['--voice', voice, '--text', clean, '--write-media', outFile]);
 
   if (!fs.existsSync(outFile) || fs.statSync(outFile).size < 1000) {
     throw new Error('edge-tts produced empty file');
@@ -157,4 +181,4 @@ async function getAudioDuration(file) {
   return dur;
 }
 
-module.exports = { synthesize, getAudioDuration, sanitizeForSpeech, buildSSML };
+module.exports = { synthesize, getAudioDuration, sanitizeForSpeech };

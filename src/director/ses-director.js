@@ -144,8 +144,8 @@ function buildScreenplay(article, channel) {
 
   // HOOK - attention grabber taken from the article itself
   const hookNarration = dataPoints[0]
-    ? `V\u00edte, \u017ee ${lcFirst(dataPoints[0].replace(/[.!?]+$/, ''))}? ${article.title}. Poj\u010fme se na to pod\u00edvat zbl\u00edzka.`
-    : `${article.title}. ${perex} Poj\u010fme se na to pod\u00edvat zbl\u00edzka.`;
+    ? dataPoints[0].replace(/[.!?]+$/, '') + '. ' + article.title + '. Poj\u010fme se na to pod\u00edvat zbl\u00edzka.'
+    : article.title + '. ' + perex + ' Poj\u010fme se na to pod\u00edvat zbl\u00edzka.';
   scenes.push(scene('hero', topic, {
     kicker: 'SmartEnergyShare',
     title: article.title,
