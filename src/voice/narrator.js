@@ -143,7 +143,12 @@ function sanitizeForSpeech(text) {
 
   // === Large numbers - add spaces for natural reading ===
   s = s.replace(/(\d)(\d{6})(?!\d)/g, '$1 $2');   // millions
-  s = s.replace(/(\d)(\d{3})(?!\d)/g, '$1 $2');   // thousands (after units converted)
+  s = s.replace(/(\d)(\d{3})(?!\d)/g, (m, a, b) => {
+    // Don't split years like 2024
+    const num = parseInt(a + b);
+    if (num >= 1900 && num <= 2099) return a + b;
+    return a + ' ' + b;
+  });
 
   // === Clean up whitespace ===
   s = s.replace(/\s+/g, ' ');
