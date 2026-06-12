@@ -15,6 +15,7 @@ function httpGetJson(url, timeoutMs = 20000) {
     const lib = url.startsWith('https') ? https : http;
     const req = lib.get(url, { timeout: timeoutMs, headers: { 'User-Agent': 'ai-youtube-ses/1.0' } }, (res) => {
       if (res.statusCode >= 300) { res.resume(); return reject(new Error(`HTTP ${res.statusCode}`)); }
+      res.setEncoding('utf8'); // decode across chunk boundaries - multi-byte Czech chars must not be split
       let body = '';
       res.on('data', (c) => { body += c; });
       res.on('end', () => { try { resolve(JSON.parse(body)); } catch (e) { reject(e); } });

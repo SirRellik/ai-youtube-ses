@@ -6,6 +6,7 @@
  * naturally - never forced advertising.
  */
 const { generateImagePrompt } = require('./image-prompts');
+const { decodeEntities } = require('../utils/decode-entities');
 
 const CHARS_PER_SEC = 14;   // approximate cs-CZ-VlastaNeural speaking rate
 const TARGET_MIN_SEC = 75;  // aim safely above the 60s minimum
@@ -17,6 +18,9 @@ function stripHtml(html) {
   s = s.replace(/<style[\s\S]*?<\/style>/gi, '');
   s = s.replace(/<script[\s\S]*?<\/script>/gi, '');
   s = s.replace(/<[^>]+>/g, ' ');
+  // HTML entities - decode before markdown removal (which would eat the # in
+  // &#345;) and never strip: Czech letters arrive as &iacute; / &#269;
+  s = decodeEntities(s);
   // Markdown removal
   s = s.replace(/```[\s\S]*?```/g, '');
   s = s.replace(/`([^`]*)`/g, '$1');
@@ -36,11 +40,6 @@ function stripHtml(html) {
   s = s.replace(/#+/g, '');
   s = s.replace(/`+/g, '');
   s = s.replace(/~+/g, '');
-  // HTML entities
-  s = s.replace(/&nbsp;/g, ' ');
-  s = s.replace(/&amp;/g, 'a');
-  s = s.replace(/&[a-zA-Z]+;/g, ' ');
-  s = s.replace(/&#\d+;/g, ' ');
   // Cleanup
   s = s.replace(/\s+/g, ' ');
   return s.trim();

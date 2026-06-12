@@ -5,6 +5,7 @@
  */
 const { execFile } = require('child_process');
 const fs = require('fs');
+const { decodeEntities } = require('../utils/decode-entities');
 
 function run(cmd, args, timeoutMs = 120000) {
   return new Promise((resolve, reject) => {
@@ -20,6 +21,10 @@ function run(cmd, args, timeoutMs = 120000) {
  */
 function sanitizeForSpeech(text) {
   let s = String(text);
+
+  // === HTML entities - decode FIRST (markdown rules below would eat the #
+  // in &#345;) and never strip: Czech letters arrive as &iacute; / &#269; ===
+  s = decodeEntities(s);
 
   // === MARKDOWN removal ===
   s = s.replace(/```[\s\S]*?```/g, '');          // code blocks
@@ -52,14 +57,7 @@ function sanitizeForSpeech(text) {
   s = s.replace(/www\.\S+/gi, '');                // remove remaining www. links
   s = s.replace(/\S+\.(com|cz|eu|org|net|io)\b/gi, ''); // remove remaining domains
 
-  // === HTML entities ===
-  s = s.replace(/&amp;/g, 'a');
-  s = s.replace(/&nbsp;/g, ' ');
-  s = s.replace(/&ndash;/g, ', ');
-  s = s.replace(/&mdash;/g, ', ');
-  s = s.replace(/&hellip;/g, '...');
-  s = s.replace(/&[a-zA-Z]+;/g, ' ');
-  s = s.replace(/&#\d+;/g, ' ');
+  s = s.replace(/\s*&\s*/g, ' a ');               // spoken ampersand
 
   // === Encoding artifacts ===
   s = s.replace(/\\u[\da-fA-F]{4}/g, '');          // unicode escapes

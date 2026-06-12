@@ -23,15 +23,19 @@ async function generateThumbnail(screenplay, channel, cfg) {
   );
   const seo = screenplay.seo || {};
   const logoPath = path.resolve(channel.logo || '');
-  const html = TEMPLATE
-    .replace(/{{WIDTH}}/g, cfg.thumbnail.width).replace(/{{HEIGHT}}/g, cfg.thumbnail.height)
-    .replace(/{{PRIMARY}}/g, channel.colors.primary).replace(/{{SECONDARY}}/g, channel.colors.secondary)
-    .replace(/{{TEXT}}/g, channel.colors.text).replace(/{{BG_DARK}}/g, channel.colors.bgDark || '#04162e')
-    .replace(/{{THUMB_TEXT}}/g, esc(seo.thumbnailText || String(screenplay.title).slice(0, 24).toUpperCase()))
-    .replace(/{{TITLE}}/g, esc(String(screenplay.title).slice(0, 70)))
-    .replace(/{{BG_IMAGE}}/g, bgFile ? `file://${path.resolve(bgFile)}` : EMPTY_BG)
-    .replace(/{{LOGO_TAG}}/g, fs.existsSync(logoPath) ? `<img src="file://${logoPath}">` : '')
-    .replace(/{{CHANNEL_NAME}}/g, esc(channel.name));
+  const vars = {
+    WIDTH: cfg.thumbnail.width, HEIGHT: cfg.thumbnail.height,
+    PRIMARY: channel.colors.primary, SECONDARY: channel.colors.secondary,
+    TEXT: channel.colors.text, BG_DARK: channel.colors.bgDark || '#04162e',
+    THUMB_TEXT: esc(seo.thumbnailText || String(screenplay.title).slice(0, 24).toUpperCase()),
+    TITLE: esc(String(screenplay.title).slice(0, 70)),
+    BG_IMAGE: bgFile ? `file://${path.resolve(bgFile)}` : EMPTY_BG,
+    LOGO_TAG: fs.existsSync(logoPath) ? `<img src="file://${logoPath}">` : '',
+    CHANNEL_NAME: esc(channel.name)
+  };
+  // function replacement so $& / $' / $1 in text are inserted literally
+  const html = Object.entries(vars).reduce(
+    (h, [k, v]) => h.replace(new RegExp(`{{${k}}}`, 'g'), () => String(v)), TEMPLATE);
 
   fs.mkdirSync(cfg.outputDir, { recursive: true });
   const outFile = path.join(cfg.outputDir, `${screenplay.articleId}-thumb.png`);

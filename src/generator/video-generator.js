@@ -27,6 +27,8 @@ const TYPE_TO_TEMPLATE = {
 const PHOTO_TEMPLATES = new Set(['hero', 'photo-overlay', 'infographic', 'comparison']);
 const EMPTY_BG = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
 const FADE_SEC = 0.5;
+const SUB_FONT = '/usr/share/fonts/truetype/noto/NotoSans-Regular.ttf';
+const SUB_FADE = 0.3;
 
 const templateCache = {};
 function loadTemplate(name) {
@@ -49,6 +51,11 @@ function ffmpeg(args, timeoutMs = 600000) {
 
 function esc(s) {
   return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+// function replacement so $& / $' / $1 in scene text are inserted literally
+function put(html, key, val) {
+  return html.replace(new RegExp(`{{${key}}}`, 'g'), () => String(val));
 }
 
 function logoTag(channel) {
@@ -78,20 +85,22 @@ function bodyHtml(scene, tplName) {
  */
 function fillTemplate(scene, idx, total, channel, cfg, bgFile, progressPct, compositeBg) {
   const tplName = TYPE_TO_TEMPLATE[scene.visual_type] || 'photo-overlay';
-  return loadTemplate(tplName)
-    .replace(/{{WIDTH}}/g, cfg.video.width).replace(/{{HEIGHT}}/g, cfg.video.height)
-    .replace(/{{PRIMARY}}/g, channel.colors.primary).replace(/{{SECONDARY}}/g, channel.colors.secondary)
-    .replace(/{{TEXT}}/g, channel.colors.text).replace(/{{BG_DARK}}/g, channel.colors.bgDark || '#04162e')
-    .replace(/{{KICKER}}/g, esc(scene.kicker || '')).replace(/{{TITLE}}/g, esc(scene.title || ''))
-    .replace(/{{TITLE_SIZE}}/g, String(scene.title && scene.title.length > 70 ? 56 : 76))
-    .replace(/{{OVERLAY}}/g, esc(scene.text_overlay || ''))
-    .replace(/{{BODY}}/g, bodyHtml(scene, tplName))
-    .replace(/{{BODY_BG}}/g, compositeBg ? 'transparent' : (channel.colors.bgDark || '#04162e'))
-    .replace(/{{BG_DISPLAY}}/g, compositeBg || !bgFile ? 'none' : 'block')
-    .replace(/{{BG_IMAGE}}/g, !compositeBg && bgFile ? `file://${path.resolve(bgFile)}` : EMPTY_BG)
-    .replace(/{{PROGRESS}}/g, String(Math.max(2, Math.min(100, Math.round(progressPct || 0)))))
-    .replace(/{{LOGO_TAG}}/g, logoTag(channel)).replace(/{{CHANNEL_NAME}}/g, esc(channel.name))
-    .replace(/{{SCENE_NUM}}/g, `${idx + 1} / ${total}`);
+  const vars = {
+    WIDTH: cfg.video.width, HEIGHT: cfg.video.height,
+    PRIMARY: channel.colors.primary, SECONDARY: channel.colors.secondary,
+    TEXT: channel.colors.text, BG_DARK: channel.colors.bgDark || '#04162e',
+    KICKER: esc(scene.kicker || ''), TITLE: esc(scene.title || ''),
+    TITLE_SIZE: String(scene.title && scene.title.length > 70 ? 56 : 76),
+    OVERLAY: esc(scene.text_overlay || ''),
+    BODY: bodyHtml(scene, tplName),
+    BODY_BG: compositeBg ? 'transparent' : (channel.colors.bgDark || '#04162e'),
+    BG_DISPLAY: compositeBg || !bgFile ? 'none' : 'block',
+    BG_IMAGE: !compositeBg && bgFile ? `file://${path.resolve(bgFile)}` : EMPTY_BG,
+    PROGRESS: String(Math.max(2, Math.min(100, Math.round(progressPct || 0)))),
+    LOGO_TAG: logoTag(channel), CHANNEL_NAME: esc(channel.name),
+    SCENE_NUM: `${idx + 1} / ${total}`
+  };
+  return Object.entries(vars).reduce((html, [k, v]) => put(html, k, v), loadTemplate(tplName));
 }
 
 async function renderPng(browser, html, outPng, width, height, transparent) {
@@ -103,6 +112,60 @@ async function renderPng(browser, html, outPng, width, height, transparent) {
   } finally {
     await page.close();
   }
+}
+
+/**
+ * Movie-style subtitles: split narration into ~5-8 word phrases, time each
+ * phrase proportionally to its word count across the narration audio, and
+ * burn them in with drawtext (textfile= sidesteps drawtext escaping of
+ * Czech punctuation/diacritics).
+ */
+function splitNarrationToChunks(narration, maxWords = 8) {
+  const text = String(narration || '').replace(/\s+/g, ' ').trim();
+  if (!text) return [];
+  // sentence boundaries first so phrases don't straddle full stops
+  const sentences = text.match(/[^.!?]+[.!?]*/g) || [text];
+  const chunks = [];
+  for (const sentence of sentences) {
+    const words = sentence.trim().split(' ').filter(Boolean);
+    if (!words.length) continue;
+    const parts = Math.ceil(words.length / maxWords);
+    const per = Math.ceil(words.length / parts);
+    for (let i = 0; i < words.length; i += per) {
+      chunks.push(words.slice(i, i + per).join(' '));
+    }
+  }
+  return chunks;
+}
+
+function buildSubtitles(narration, audioDur, work, sceneIdx) {
+  const chunks = splitNarrationToChunks(narration);
+  const totalWords = chunks.reduce((a, c) => a + c.split(' ').length, 0);
+  if (!totalWords) return [];
+  let t = 0;
+  return chunks.map((chunk, j) => {
+    const file = path.join(work, `sub-${sceneIdx}-${j}.txt`);
+    fs.writeFileSync(file, chunk);
+    const dur = audioDur * (chunk.split(' ').length / totalWords);
+    const sub = { file, start: t, end: t + dur };
+    t += dur;
+    return sub;
+  });
+}
+
+function subtitleFilters(subs) {
+  return subs.map((s, j) => {
+    const start = s.start.toFixed(2);
+    // last phrase lingers a touch into the post-narration padding
+    const end = (s.end + (j === subs.length - 1 ? 0.6 : 0)).toFixed(2);
+    return (
+      `drawtext=textfile='${s.file}':fontfile=${SUB_FONT}:fontsize=36:fontcolor=white:` +
+      `borderw=2:bordercolor=black:box=1:boxcolor=black@0.45:boxborderw=14:` +
+      `x=(w-text_w)/2:y=h-90:` +
+      `alpha='if(lt(t,${start}),0,if(lt(t,${start}+${SUB_FADE}),(t-${start})/${SUB_FADE},1))':` +
+      `enable='between(t,${start},${end})'`
+    );
+  }).join(',');
 }
 
 /** Ken Burns variants - alternate zoom in / zoom out / pan L>R / pan R>L */
@@ -125,9 +188,10 @@ function zoompanFilter(kb, frames, w, h, fps) {
 }
 
 /** Encode one scene clip: animated photo bg + static overlay, or animated full frame. */
-async function encodeScene({ idx, bgFile, overlayPng, fullPng, mp3, clipDur, cfg, outClip }) {
+async function encodeScene({ idx, bgFile, overlayPng, fullPng, mp3, clipDur, cfg, outClip, subs }) {
   const { width: W, height: H, fps } = cfg.video;
   const frames = Math.ceil(clipDur * fps) + 2;
+  const subChain = subs && subs.length ? `,${subtitleFilters(subs)}` : '';
   const common = [
     '-c:v', 'libx264', '-preset', 'medium', '-crf', '21',
     '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-b:a', '160k', '-ar', '44100',
@@ -142,14 +206,14 @@ async function encodeScene({ idx, bgFile, overlayPng, fullPng, mp3, clipDur, cfg
       '-filter_complex',
       `[0:v]scale=${upW}:${upH}:force_original_aspect_ratio=increase,crop=${upW}:${upH},` +
       `${zoompanFilter(kb, frames, W, H, fps)}[bg];` +
-      `[bg][1:v]overlay=0:0,format=yuv420p[v];[2:a]apad[a]`,
+      `[bg][1:v]overlay=0:0${subChain},format=yuv420p[v];[2:a]apad[a]`,
       '-map', '[v]', '-map', '[a]', ...common
     ]);
   } else {
     // gradient/text scene: static frame (zooming would crop the progress bar)
     await ffmpeg([
       '-loop', '1', '-framerate', String(fps), '-i', fullPng, '-i', mp3,
-      '-filter_complex', `[0:v]format=yuv420p[v];[1:a]apad[a]`,
+      '-filter_complex', `[0:v]format=yuv420p${subChain}[v];[1:a]apad[a]`,
       '-map', '[v]', '-map', '[a]', '-r', String(fps), ...common
     ]);
   }
@@ -199,11 +263,13 @@ async function generateVideo(screenplay, channel, cfg) {
   // progress bar) is known before any frame is rendered.
   const mp3s = [];
   const durs = []; // visible scene length on the final timeline
+  const audioDurs = []; // narration length - subtitle phrases are timed over this
   for (let i = 0; i < n; i++) {
     const mp3 = path.join(work, `scene-${i}.mp3`);
     await synthesize(scenes[i].narration, voice, mp3);
     const audioDur = await getAudioDuration(mp3);
     durs.push(Math.max(cfg.video.minSceneSec, audioDur + 0.8));
+    audioDurs.push(audioDur);
     mp3s.push(mp3);
   }
   const totalDur = durs.reduce((a, b) => a + b, 0);
@@ -234,9 +300,10 @@ async function generateVideo(screenplay, channel, cfg) {
       // crossfade overlap eats FADE_SEC, pad every clip except the last
       const clipDur = durs[i] + (i < n - 1 ? FADE_SEC : 0);
       const clip = path.join(work, `scene-${i}.mp4`);
+      const subs = buildSubtitles(scene.narration, audioDurs[i], work, i);
       await encodeScene({
         idx: i, bgFile, overlayPng: composite ? png : null, fullPng: png,
-        mp3: mp3s[i], clipDur, cfg, outClip: clip
+        mp3: mp3s[i], clipDur, cfg, outClip: clip, subs
       });
       sceneClips.push(clip);
       clipDurs.push(clipDur);
@@ -273,7 +340,7 @@ async function generateVideo(screenplay, channel, cfg) {
     imagePrompts: buildPromptsForScreenplay(screenplay),
     scenes: screenplay.scenes.map((s) => ({ visual_type: s.visual_type, title: s.title, duration_hint: s.duration_hint })),
     totalDurationSec: Math.round(totalDur),
-    effects: { kenBurns: true, crossfadeSec: FADE_SEC },
+    effects: { kenBurns: true, crossfadeSec: FADE_SEC, subtitles: true },
     generatedAt: new Date().toISOString()
   };
   fs.writeFileSync(path.join(cfg.outputDir, `${screenplay.articleId}-meta.json`), JSON.stringify(meta, null, 2));
