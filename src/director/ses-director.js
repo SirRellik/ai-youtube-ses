@@ -12,11 +12,38 @@ const TARGET_MIN_SEC = 75;  // aim safely above the 60s minimum
 const MAX_BODY_SCENES = 6;
 
 function stripHtml(html) {
-  return String(html)
-    .replace(/<style[\s\S]*?<\/style>/gi, '').replace(/<script[\s\S]*?<\/script>/gi, '')
-    .replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#?\w+;/g, ' ')
-    .replace(/\s+/g, ' ').trim();
+  let s = String(html);
+  // HTML removal
+  s = s.replace(/<style[\s\S]*?<\/style>/gi, '');
+  s = s.replace(/<script[\s\S]*?<\/script>/gi, '');
+  s = s.replace(/<[^>]+>/g, ' ');
+  // Markdown removal
+  s = s.replace(/```[\s\S]*?```/g, '');
+  s = s.replace(/`([^`]*)`/g, '$1');
+  s = s.replace(/#{1,6}\s*/g, '');
+  s = s.replace(/\*\*\*([^*]+)\*\*\*/g, '$1');
+  s = s.replace(/\*\*([^*]+)\*\*/g, '$1');
+  s = s.replace(/\*([^*]+)\*/g, '$1');
+  s = s.replace(/__([^_]+)__/g, '$1');
+  s = s.replace(/_([^_]+)_/g, '$1');
+  s = s.replace(/~~([^~]+)~~/g, '$1');
+  s = s.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1');
+  s = s.replace(/!\[([^\]]*)\]\([^)]+\)/g, '');
+  s = s.replace(/^[-*+]\s+/gm, '');
+  s = s.replace(/^\d+\.\s+/gm, '');
+  s = s.replace(/^>\s*/gm, '');
+  s = s.replace(/\*+/g, '');
+  s = s.replace(/#+/g, '');
+  s = s.replace(/`+/g, '');
+  s = s.replace(/~+/g, '');
+  // HTML entities
+  s = s.replace(/&nbsp;/g, ' ');
+  s = s.replace(/&amp;/g, 'a');
+  s = s.replace(/&[a-zA-Z]+;/g, ' ');
+  s = s.replace(/&#\d+;/g, ' ');
+  // Cleanup
+  s = s.replace(/\s+/g, ' ');
+  return s.trim();
 }
 
 function splitSentences(text) {
