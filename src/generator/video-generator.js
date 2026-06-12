@@ -10,7 +10,19 @@ const fs = require('fs');
 const path = require('path');
 const puppeteer = require('puppeteer');
 const { execFile } = require('child_process');
-const { synthesize, getAudioDuration } = require('../voice/narrator');
+const edgeNarrator = require('../voice/narrator');
+const geminiNarrator = require('../voice/narrator-v2');
+const { getAudioDuration } = edgeNarrator;
+
+// Premium Gemini TTS first; edge-tts when the key is missing or quota is gone.
+async function synthesize(text, voice, outFile) {
+  try {
+    return await geminiNarrator.synthesize(text, voice, outFile);
+  } catch (e) {
+    console.warn(`[VideoGen] narrator-v2 unavailable (${e.message}) - falling back to edge-tts`);
+    return edgeNarrator.synthesize(text, voice, outFile);
+  }
+}
 const { sourceSceneImage } = require('./visual-sourcer');
 const { generateMusic } = require('../audio/music-generator');
 const { buildPromptsForScreenplay } = require('../director/image-prompts');
