@@ -110,6 +110,16 @@ function scene(visualType, topic, o) {
   };
 }
 
+function headline(sentence, max) {
+  let s = String(sentence).replace(/[.!?]+$/, '').trim();
+  if (s.length <= max) return s;
+  for (const br of [': ', ', ', '; ', ' – ', ' - ']) {
+    const idx = s.lastIndexOf(br, max);
+    if (idx > max * 0.4) return s.slice(0, idx).trim();
+  }
+  return smartTrunc(s, max);
+}
+
 function lcFirst(s) { return s ? s.charAt(0).toLowerCase() + s.slice(1) : s; }
 
 function buildSeo(article, channel, perex) {
@@ -157,7 +167,7 @@ function buildScreenplay(article, channel) {
   scenes.push(scene('hero', topic, {
     kicker: 'SmartEnergyShare',
     title: article.title,
-    text_overlay: smartTrunc(perex, 110),
+    text_overlay: smartTrunc(perex, 200),
     narration: hookNarration,
     pexels_query: query,
     useArticleImage: true
@@ -176,8 +186,8 @@ function buildScreenplay(article, channel) {
     const chunk = chunks[bi];
     scenes.push(scene(bodyTypes[bi], topic, {
       kicker: bodyKickers[bi],
-      title: smartTrunc(chunk[0], 90),
-      bullets: chunk.slice(1).map((s) => smartTrunc(s, 130)),
+      title: headline(chunk[0], 60),
+      bullets: chunk,
       narration: chunk.join(' '),
       pexels_query: query
     }));
@@ -188,7 +198,7 @@ function buildScreenplay(article, channel) {
   for (const dp of dataPoints.slice(0, 2)) {
     scenes.push(scene('data_chart', topic, {
       kicker: 'Kl\u00ed\u010dov\u00e9 \u010d\u00edslo',
-      title: smartTrunc(dp, 120),
+      title: dp,
       text_overlay: shortOverlay(dp),
       narration: `Zapamatujte si jedno kl\u00ed\u010dov\u00e9 \u010d\u00edslo. ${dp}`
     }));
@@ -199,7 +209,7 @@ function buildScreenplay(article, channel) {
     scenes.push(scene('quote', topic, {
       kicker: 'Stoj\u00ed za zm\u00ednku',
       title: article.author || 'Z \u010dl\u00e1nku',
-      text_overlay: quote.replace(/[\u201e\u201c"\u201d]/g, '').slice(0, 160),
+      text_overlay: quote.replace(/[\u201e\u201c"\u201d]/g, ''),
       narration: quote
     }));
   }
