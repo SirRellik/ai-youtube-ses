@@ -12,6 +12,15 @@ const CHARS_PER_SEC = 14;   // approximate cs-CZ-VlastaNeural speaking rate
 const TARGET_MIN_SEC = 75;  // aim safely above the 60s minimum
 const MAX_BODY_SCENES = 6;
 
+function smartTrunc(s, max) {
+  s = String(s).trim();
+  if (s.length <= max) return s;
+  let cut = s.slice(0, max);
+  cut = cut.replace(/\s+\S*$/, '');
+  if (cut.length < max * 0.5) cut = s.slice(0, max);
+  return cut + '\u2026';
+}
+
 function stripHtml(html) {
   let s = String(html);
   // HTML removal
@@ -148,7 +157,7 @@ function buildScreenplay(article, channel) {
   scenes.push(scene('hero', topic, {
     kicker: 'SmartEnergyShare',
     title: article.title,
-    text_overlay: perex.slice(0, 110),
+    text_overlay: smartTrunc(perex, 110),
     narration: hookNarration,
     pexels_query: query,
     useArticleImage: true
@@ -167,8 +176,8 @@ function buildScreenplay(article, channel) {
     const chunk = chunks[bi];
     scenes.push(scene(bodyTypes[bi], topic, {
       kicker: bodyKickers[bi],
-      title: chunk[0].slice(0, 90),
-      bullets: chunk.slice(1).map((s) => s.slice(0, 130)),
+      title: smartTrunc(chunk[0], 90),
+      bullets: chunk.slice(1).map((s) => smartTrunc(s, 130)),
       narration: chunk.join(' '),
       pexels_query: query
     }));
@@ -179,7 +188,7 @@ function buildScreenplay(article, channel) {
   for (const dp of dataPoints.slice(0, 2)) {
     scenes.push(scene('data_chart', topic, {
       kicker: 'Kl\u00ed\u010dov\u00e9 \u010d\u00edslo',
-      title: dp.slice(0, 120),
+      title: smartTrunc(dp, 120),
       text_overlay: shortOverlay(dp),
       narration: `Zapamatujte si jedno kl\u00ed\u010dov\u00e9 \u010d\u00edslo. ${dp}`
     }));
